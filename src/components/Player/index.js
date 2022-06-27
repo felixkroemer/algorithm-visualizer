@@ -1,17 +1,15 @@
-import React from 'react';
-import { connect } from 'react-redux';
-import InputRange from 'react-input-range';
-import axios from 'axios';
-import faPlay from '@fortawesome/fontawesome-free-solid/faPlay';
-import faChevronLeft from '@fortawesome/fontawesome-free-solid/faChevronLeft';
-import faChevronRight from '@fortawesome/fontawesome-free-solid/faChevronRight';
-import faPause from '@fortawesome/fontawesome-free-solid/faPause';
-import faWrench from '@fortawesome/fontawesome-free-solid/faWrench';
-import { classes, extension } from 'common/util';
-import { TracerApi } from 'apis';
-import { actions } from 'reducers';
-import { BaseComponent, Button, ProgressBar } from 'components';
-import styles from './Player.module.scss';
+import faChevronLeft from "@fortawesome/fontawesome-free-solid/faChevronLeft";
+import faChevronRight from "@fortawesome/fontawesome-free-solid/faChevronRight";
+import faPause from "@fortawesome/fontawesome-free-solid/faPause";
+import faPlay from "@fortawesome/fontawesome-free-solid/faPlay";
+import faWrench from "@fortawesome/fontawesome-free-solid/faWrench";
+import { classes, extension } from "common/util";
+import { BaseComponent, Button, ProgressBar } from "components";
+import React from "react";
+import { connect } from "react-redux";
+import { actions } from "reducers";
+import * as AlgorithmVisualizer from "../../common/AlgorithmVisualizer";
+import styles from "./Player.module.scss";
 
 class Player extends BaseComponent {
   constructor(props) {
@@ -22,8 +20,6 @@ class Player extends BaseComponent {
       playing: false,
       building: false,
     };
-
-    this.tracerApiSource = null;
 
     this.reset();
   }
@@ -41,14 +37,16 @@ class Player extends BaseComponent {
   }
 
   reset(commands = []) {
-    const chunks = [{
-      commands: [],
-      lineNumber: undefined,
-    }];
+    const chunks = [
+      {
+        commands: [],
+        lineNumber: undefined,
+      },
+    ];
     while (commands.length) {
       const command = commands.shift();
       const { key, method, args } = command;
-      if (key === null && method === 'delay') {
+      if (key === null && method === "delay") {
         const [lineNumber] = args;
         chunks[chunks.length - 1].lineNumber = lineNumber;
         chunks.push({
@@ -65,33 +63,65 @@ class Player extends BaseComponent {
     this.props.setLineIndicator(undefined);
   }
 
+  getCommands(content, ext) {
+    switch (ext) {
+      case "md":
+        return [
+          {
+            key: "markdown",
+            method: "MarkdownTracer",
+            args: ["Markdown"],
+          },
+          {
+            key: "markdown",
+            method: "set",
+            args: [content],
+          },
+          {
+            key: null,
+            method: "setRoot",
+            args: ["markdown"],
+          },
+        ];
+      case "js":
+        const code = content
+          .split("\n")
+          .map((line, i) => line.replace(/(\.\s*delay\s*)\(\s*\)/g, `$1(${i})`))
+          .join("\n");
+        // eslint-disable-next-line no-unused-vars
+        const process = { env: { ALGORITHM_VISUALIZER: "1" } };
+        // eslint-disable-next-line no-unused-vars
+        const require = (name) =>
+          ({ "algorithm-visualizer": AlgorithmVisualizer }[name]); // fake require
+        // eslint-disable-next-line no-eval
+        eval(code);
+        return AlgorithmVisualizer.Commander.commands;
+      default:
+        return null;
+    }
+  }
+
   build(file) {
     this.reset();
     if (!file) return;
-
-    if (this.tracerApiSource) this.tracerApiSource.cancel();
-    this.tracerApiSource = axios.CancelToken.source();
     this.setState({ building: true });
 
-    const ext = extension(file.name);
-    if (ext in TracerApi) {
-      TracerApi[ext]({ code: file.content }, undefined, this.tracerApiSource.token)
-        .then(commands => {
-          this.tracerApiSource = null;
-          this.setState({ building: false });
+    setTimeout(() => {
+      try {
+        const ext = extension(file.name);
+        if (ext === "md" || ext === "js") {
+          const commands = this.getCommands(file.content, ext);
           this.reset(commands);
           this.next();
-        })
-        .catch(error => {
-          if (axios.isCancel(error)) return;
-          this.tracerApiSource = null;
-          this.setState({ building: false });
-          this.handleError(error);
-        });
-    } else {
-      this.setState({ building: false });
-      this.handleError(new Error('Language Not Supported'));
-    }
+        } else {
+          throw new Error("Language Not Supported");
+        }
+      } catch (error) {
+        this.handleError(error);
+      } finally {
+        this.setState({ building: false });
+      }
+    });
   }
 
   isValidCursor(cursor) {
@@ -138,7 +168,10 @@ class Player extends BaseComponent {
 
   handleChangeProgress(progress) {
     const { chunks } = this.props.player;
-    const cursor = Math.max(1, Math.min(chunks.length, Math.round(progress * chunks.length)));
+    const cursor = Math.max(
+      1,
+      Math.min(chunks.length, Math.round(progress * chunks.length))
+    );
     this.pause();
     this.props.setCursor(cursor);
   }
@@ -151,38 +184,65 @@ class Player extends BaseComponent {
 
     return (
       <div className={classes(styles.player, className)}>
-        <Button icon={faWrench} primary disabled={building} inProgress={building}
-                onClick={() => this.build(editingFile)}>
-          {building ? 'Building' : 'Build'}
+        <Button
+          icon={faWrench}
+          primary
+          disabled={building}
+          inProgress={building}
+          onClick={() => this.build(editingFile)}
+        >
+          {building ? "Building" : "Build"}
         </Button>
-        {
-          playing ? (
-            <Button icon={faPause} primary active onClick={() => this.pause()}>Pause</Button>
-          ) : (
-            <Button icon={faPlay} primary onClick={() => this.resume(true)}>Play</Button>
-          )
-        }
-        <Button icon={faChevronLeft} primary disabled={!this.isValidCursor(cursor - 1)} onClick={() => this.prev()}/>
-        <ProgressBar className={styles.progress_bar} current={cursor} total={chunks.length}
-                     onChangeProgress={progress => this.handleChangeProgress(progress)}/>
-        <Button icon={faChevronRight} reverse primary disabled={!this.isValidCursor(cursor + 1)}
-                onClick={() => this.next()}/>
-        <div className={styles.speed}>
+        {playing ? (
+          <Button icon={faPause} primary active onClick={() => this.pause()}>
+            Pause
+          </Button>
+        ) : (
+          <Button icon={faPlay} primary onClick={() => this.resume(true)}>
+            Play
+          </Button>
+        )}
+        <Button
+          icon={faChevronLeft}
+          primary
+          disabled={!this.isValidCursor(cursor - 1)}
+          onClick={() => this.prev()}
+        />
+        <ProgressBar
+          className={styles.progress_bar}
+          current={cursor}
+          total={chunks.length}
+          onChangeProgress={(progress) => this.handleChangeProgress(progress)}
+        />
+        <Button
+          icon={faChevronRight}
+          reverse
+          primary
+          disabled={!this.isValidCursor(cursor + 1)}
+          onClick={() => this.next()}
+        />
+        {/*         <div className={styles.speed}>
           Speed
-          <InputRange
+          {           <InputRange
             classNames={{
               inputRange: styles.range,
               labelContainer: styles.range_label_container,
               slider: styles.range_slider,
               track: styles.range_track,
-            }} minValue={0} maxValue={4} step={.5} value={speed}
-            onChange={speed => this.handleChangeSpeed(speed)}/>
-        </div>
+            }}
+            minValue={0}
+            maxValue={4}
+            step={0.5}
+            value={speed}
+            onChange={(speed) => this.handleChangeSpeed(speed)}
+          /> }
+        </div> */}
       </div>
     );
   }
 }
 
-export default connect(({ current, player }) => ({ current, player }), actions)(
-  Player,
-);
+export default connect(
+  ({ current, player }) => ({ current, player }),
+  actions
+)(Player);
