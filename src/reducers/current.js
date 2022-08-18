@@ -46,6 +46,7 @@ const modifyFile = createAction(`${prefix}/MODIFY_FILE`, (file, content) => ({
   content,
 }));
 const deleteFile = createAction(`${prefix}/DELETE_FILE`, (file) => ({ file }));
+const toggleEditor = createAction(`${prefix}/TOGGLE_EDITOR`);
 
 export const actions = {
   setHome,
@@ -57,6 +58,7 @@ export const actions = {
   modifyFile,
   deleteFile,
   renameFile,
+  toggleEditor,
 };
 
 const homeTitles = ["Algorithm Visualizer"];
@@ -77,6 +79,7 @@ const defaultState = {
   editingFile: undefined,
   shouldBuild: true,
   saved: true,
+  editorEnabled: false,
 };
 
 export default handleActions(
@@ -96,8 +99,10 @@ export default handleActions(
         lastFiles: files,
         description,
         editingFile: undefined,
+        cachedFile: undefined,
         shouldBuild: true,
         saved: true,
+        editorEnabled: false,
       };
     },
     [setEditingFile]: (state, { payload }) => {
@@ -106,6 +111,7 @@ export default handleActions(
         ...state,
         editingFile: file,
         shouldBuild: true,
+        cachedFile: file,
       };
     },
     [modifyTitle]: (state, { payload }) => {
@@ -162,6 +168,12 @@ export default handleActions(
       return {
         ...newState,
         saved: isSaved(newState),
+      };
+    },
+    [toggleEditor]: (state) => {
+      return {
+        ...state,
+        editorEnabled: !state.editorEnabled,
       };
     },
   },

@@ -11,21 +11,19 @@ import { actions } from "reducers";
 class FoldableAceEditor extends AceEditor {
   componentDidMount() {
     super.componentDidMount();
-
-    const { shouldBuild } = this.props.current;
-    if (shouldBuild) this.foldTracers();
   }
 
   componentDidUpdate(prevProps, prevState, snapshot) {
     super.componentDidUpdate(prevProps, prevState, snapshot);
 
-    const { editingFile, shouldBuild } = this.props.current;
-    if (editingFile !== prevProps.current.editingFile) {
-      if (shouldBuild) this.foldTracers();
+    const { editorEnabled } = this.props.current;
+
+    if (!editorEnabled) {
+      this.removeComments();
     }
   }
 
-  foldTracers() {
+  removeComments() {
     const { editingFile } = this.props.current;
     const fileExt = extension(editingFile.name);
     if (!["md", "js"].includes(fileExt)) return;
@@ -34,8 +32,17 @@ class FoldableAceEditor extends AceEditor {
       if (!/^\s*\/\/.+{\s*$/.test(session.getLine(row))) continue;
       const range = session.getFoldWidgetRange(row);
       if (range) {
-        session.addFold("...", range);
-        row = range.end.row;
+        const line = session.getLine(row);
+        if (
+          line.includes("// visualize") ||
+          line.includes("// import visualization libraries") ||
+          line.includes("// define tracer variables") ||
+          line.includes("// logger")
+        ) {
+          range.setStart(range.start.row, 0);
+          range.setEnd(range.end.row + 1, 0);
+          session.remove(range);
+        }
       }
     }
   }

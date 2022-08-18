@@ -6,6 +6,7 @@ import { actions } from "reducers";
 import { connect } from "react-redux";
 import { Button, Ellipsis, FoldableAceEditor } from "components";
 import styles from "./CodeEditor.module.scss";
+import faWrench from "@fortawesome/fontawesome-free-solid/faWrench";
 
 class CodeEditor extends React.Component {
   constructor(props) {
@@ -23,6 +24,7 @@ class CodeEditor extends React.Component {
     const { editingFile } = this.props.current;
     const { user } = this.props.env;
     const { lineIndicator } = this.props.player;
+    const { editorEnabled, shouldBuild } = this.props.current;
 
     if (!editingFile) return null;
 
@@ -42,10 +44,18 @@ class CodeEditor extends React.Component {
           mode={mode}
           theme="tomorrow_night_eighties"
           name="code_editor"
-          editorProps={{ $blockScrolling: true }}
-          onChange={(code) => this.props.modifyFile(editingFile, code)}
+          onChange={(code) => {
+            if (!editorEnabled) {
+              this.cachedFile = this.cachedFile
+                ? { ...this.cachedFile, content: code }
+                : { ...editingFile, content: code };
+            } else {
+              this.props.modifyFile(editingFile, code);
+            }
+          }}
+          readOnly={!editorEnabled}
           markers={
-            lineIndicator
+            lineIndicator && editorEnabled
               ? [
                   {
                     startRow: lineIndicator.lineNumber,
@@ -53,7 +63,7 @@ class CodeEditor extends React.Component {
                     endRow: lineIndicator.lineNumber,
                     endCol: Infinity,
                     className: styles.current_line_marker,
-                    type: "line",
+                    type: "fullLine",
                     inFront: true,
                     _key: lineIndicator.cursor,
                   },
@@ -82,6 +92,18 @@ class CodeEditor extends React.Component {
           ))}
           <div className={styles.empty}>
             <div className={styles.empty} />
+            <Button
+              className={styles.delete}
+              icon={faWrench}
+              primary
+              onClick={() => this.props.toggleEditor()}
+            >
+              <Ellipsis>
+                {this.props.current.editorEnabled
+                  ? "Disable Editing"
+                  : "Enable Editing"}
+              </Ellipsis>
+            </Button>
             <Button
               className={styles.delete}
               icon={faTrashAlt}

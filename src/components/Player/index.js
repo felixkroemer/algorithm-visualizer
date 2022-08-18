@@ -84,6 +84,15 @@ class Player extends BaseComponent {
           },
         ];
       case "js":
+/*         const lines = content.split("\n");
+        const code = [];
+        let index = 0;
+        for(const line of lines) {
+          code.push(line);
+          if(index>=3)
+          code.push(`Tracer.delay(${index});`);
+          index++;
+        } */
         const code = content
           .split("\n")
           .map((line, i) => line.replace(/(\.\s*delay\s*)\(\s*\)/g, `$1(${i})`))
