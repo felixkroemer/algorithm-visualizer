@@ -49,7 +49,7 @@ class Player extends BaseComponent {
       if (key === null && method === "delay") {
         const [lineNumber] = args;
         // avoid delay on same line twice in a row
-        if (chunks[chunks.length - 2]?.lineNumber == lineNumber) {
+        if (commands[0]?.args[0] === lineNumber) {
           continue;
         }
         chunks[chunks.length - 1].lineNumber = lineNumber;
@@ -93,9 +93,16 @@ class Player extends BaseComponent {
         let index = 0;
         let tracing = true;
         for (const line of lines) {
+          if(/\s*Tracer.delay();?/.test(line) || line.trim() === "") {
+            index++;
+            continue;
+          }
           const start = /.*\/\/.*{/.test(line);
           const end = /.*\/\/.*}/.test(line);
           if (start) {
+            if(line.includes("combine")) {
+              code.push(`Tracer.delay(${index + 1});`);
+            }
             tracing = false;
             index++;
             continue;
