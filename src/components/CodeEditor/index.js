@@ -13,6 +13,22 @@ class CodeEditor extends React.Component {
     super(props);
 
     this.aceEditorRef = React.createRef();
+    this.state = { offsets: [] };
+    this.setOffsets = this.setOffsets.bind(this);
+  }
+
+  setOffsets(offsets) {
+    if (offsets.toString() !== this.state.offsets?.toString())
+      this.setState({ offsets: offsets });
+  }
+
+  translateLineNumber(lineNumber) {
+    const { editorEnabled } = this.props.current;
+    if (editorEnabled) {
+      return lineNumber;
+    } else {
+      return lineNumber - this.state.offsets.at(lineNumber);
+    }
   }
 
   handleResize() {
@@ -24,7 +40,7 @@ class CodeEditor extends React.Component {
     const { editingFile } = this.props.current;
     const { user } = this.props.env;
     const { lineIndicator } = this.props.player;
-    const { editorEnabled, shouldBuild } = this.props.current;
+    const { editorEnabled } = this.props.current;
 
     if (!editingFile) return null;
 
@@ -53,14 +69,17 @@ class CodeEditor extends React.Component {
               this.props.modifyFile(editingFile, code);
             }
           }}
+          setOffsets={this.setOffsets}
           readOnly={!editorEnabled}
           markers={
-            lineIndicator && editorEnabled
+            lineIndicator
               ? [
                   {
-                    startRow: lineIndicator.lineNumber,
+                    startRow: this.translateLineNumber(
+                      lineIndicator.lineNumber
+                    ),
                     startCol: 0,
-                    endRow: lineIndicator.lineNumber,
+                    endRow: this.translateLineNumber(lineIndicator.lineNumber),
                     endCol: Infinity,
                     className: styles.current_line_marker,
                     type: "fullLine",

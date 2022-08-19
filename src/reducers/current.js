@@ -48,6 +48,7 @@ const modifyFile = createAction(`${prefix}/MODIFY_FILE`, (file, content) => ({
 const deleteFile = createAction(`${prefix}/DELETE_FILE`, (file) => ({ file }));
 const toggleEditor = createAction(`${prefix}/TOGGLE_EDITOR`);
 
+
 export const actions = {
   setHome,
   setAlgorithm,

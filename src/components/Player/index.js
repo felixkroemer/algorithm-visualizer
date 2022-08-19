@@ -8,7 +8,7 @@ import { BaseComponent, Button, ProgressBar } from "components";
 import React from "react";
 import { connect } from "react-redux";
 import { actions } from "reducers";
-import * as AlgorithmVisualizer from "../../common/AlgorithmVisualizer";
+import * as AlgorithmVisualizer from "../../core/mockTracers";
 import styles from "./Player.module.scss";
 
 class Player extends BaseComponent {
@@ -48,6 +48,10 @@ class Player extends BaseComponent {
       const { key, method, args } = command;
       if (key === null && method === "delay") {
         const [lineNumber] = args;
+        // avoid delay on same line twice in a row
+        if (chunks[chunks.length - 2]?.lineNumber == lineNumber) {
+          continue;
+        }
         chunks[chunks.length - 1].lineNumber = lineNumber;
         chunks.push({
           commands: [],
@@ -84,26 +88,47 @@ class Player extends BaseComponent {
           },
         ];
       case "js":
-/*         const lines = content.split("\n");
-        const code = [];
+        const lines = content.split("\n");
+        let code = [];
         let index = 0;
-        for(const line of lines) {
+        let tracing = true;
+        for (const line of lines) {
+          const start = /.*\/\/.*{/.test(line);
+          const end = /.*\/\/.*}/.test(line);
+          if (start) {
+            tracing = false;
+            index++;
+            continue;
+          }
+          if (end) {
+            tracing = true;
+            index++;
+            continue;
+          }
+          if (tracing) {
+            code.push(`Tracer.delay(${index});`);
+          }
           code.push(line);
-          if(index>=3)
-          code.push(`Tracer.delay(${index});`);
+          if (tracing) {
+            code.push(`Tracer.delay(${index});`);
+          }
+
           index++;
-        } */
-        const code = content
-          .split("\n")
-          .map((line, i) => line.replace(/(\.\s*delay\s*)\(\s*\)/g, `$1(${i})`))
-          .join("\n");
+        }
+        code.filter((line, index, arr) => {
+          if (index > 1 && arr[index] == arr[index - 2]) {
+            return false;
+          } else {
+            return true;
+          }
+        });
         // eslint-disable-next-line no-unused-vars
         const process = { env: { ALGORITHM_VISUALIZER: "1" } };
         // eslint-disable-next-line no-unused-vars
         const require = (name) =>
           ({ "algorithm-visualizer": AlgorithmVisualizer }[name]); // fake require
         // eslint-disable-next-line no-eval
-        eval(code);
+        eval(code.join("\n"));
         return AlgorithmVisualizer.Commander.commands;
       default:
         return null;

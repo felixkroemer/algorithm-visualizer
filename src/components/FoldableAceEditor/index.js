@@ -9,14 +9,10 @@ import { extension } from "common/util";
 import { actions } from "reducers";
 
 class FoldableAceEditor extends AceEditor {
-  componentDidMount() {
-    super.componentDidMount();
-  }
-
   componentDidUpdate(prevProps, prevState, snapshot) {
     super.componentDidUpdate(prevProps, prevState, snapshot);
 
-    const { editorEnabled } = this.props.current;
+    const { editorEnabled, shouldBuild, editingFile } = this.props.current;
 
     if (!editorEnabled) {
       this.removeComments();
@@ -28,6 +24,8 @@ class FoldableAceEditor extends AceEditor {
     const fileExt = extension(editingFile.name);
     if (!["md", "js"].includes(fileExt)) return;
     const session = this.editor.getSession();
+    const offsets = new Array(session.getLength() + 1).fill(0);
+    const ranges=[]
     for (let row = 0; row < session.getLength(); row++) {
       if (!/^\s*\/\/.+{\s*$/.test(session.getLine(row))) continue;
       const range = session.getFoldWidgetRange(row);
@@ -41,11 +39,50 @@ class FoldableAceEditor extends AceEditor {
         ) {
           range.setStart(range.start.row, 0);
           range.setEnd(range.end.row + 1, 0);
-          session.remove(range);
+          for (let i = range.end.row; i <= session.getLength(); i++) {
+            offsets[i] += range.end.row - range.start.row;
+          }
+          ranges.push(range)
         }
       }
     }
+    for(const range of ranges.reverse()) {
+      session.remove(range)
+    }
+    this.props.setOffsets(offsets);
   }
+
+/*     removeComments() {
+    const { editingFile } = this.props.current;
+    const fileExt = extension(editingFile.name);
+    if (!(fileExt === "js")) return;
+    const session = this.editor.getSession();
+    const lineCount = session.getValue().split("\n").length;
+    const offsets = new Array(lineCount + 1).fill(0);
+    let tracing = false;
+    let offset = 0;
+    let rows = [];
+    for (let row = 0; row < session.getLength(); row++) {
+      if (tracing) {
+        if (session.getLine(row).includes(">>>")) {
+          tracing = false;
+          rows.push(row);
+          offset++;
+        }
+      } else {
+        if (session.getLine(row).includes("<<<")) {
+          tracing = true;
+        }
+        rows.push(row);
+        offset++;
+      }
+      offsets[row + 1] = offset;
+    }
+    for (let row of rows.reverse()) {
+      session.removeFullLines(row, row);
+    }
+    this.props.setOffsets(offsets);
+  } */
 
   resize() {
     this.editor.resize();
