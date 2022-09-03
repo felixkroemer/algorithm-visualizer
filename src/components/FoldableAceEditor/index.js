@@ -1,10 +1,8 @@
 import AceEditor from "react-ace";
 import { connect } from "react-redux";
-import "brace/ext/searchbox";
-import "brace/mode/javascript";
-import "brace/mode/markdown";
-import "brace/mode/plain_text";
-import "brace/theme/tomorrow_night_eighties";
+import "ace-builds/src-noconflict/mode-javascript";
+import "ace-builds/src-noconflict/mode-markdown";
+import "ace-builds/src-noconflict/theme-tomorrow_night_eighties";
 import { extension } from "common/util";
 import { actions } from "reducers";
 
@@ -12,8 +10,10 @@ class FoldableAceEditor extends AceEditor {
   componentDidUpdate(prevProps, prevState, snapshot) {
     super.componentDidUpdate(prevProps, prevState, snapshot);
 
-    const { editorEnabled, shouldBuild, editingFile } = this.props.current;
+    const { editorEnabled } = this.props.current;
 
+    // changes during removeComments() are not written to editingFile
+    // when editing is enabled, tracer related code is restored
     if (!editorEnabled) {
       this.removeComments();
     }
@@ -94,44 +94,10 @@ class FoldableAceEditor extends AceEditor {
     }
     this.props.setOffsets(offsets);
   }
-
-  /*     removeComments() {
-    const { editingFile } = this.props.current;
-    const fileExt = extension(editingFile.name);
-    if (!(fileExt === "js")) return;
-    const session = this.editor.getSession();
-    const lineCount = session.getValue().split("\n").length;
-    const offsets = new Array(lineCount + 1).fill(0);
-    let tracing = false;
-    let offset = 0;
-    let rows = [];
-    for (let row = 0; row < session.getLength(); row++) {
-      if (tracing) {
-        if (session.getLine(row).includes(">>>")) {
-          tracing = false;
-          rows.push(row);
-          offset++;
-        }
-      } else {
-        if (session.getLine(row).includes("<<<")) {
-          tracing = true;
-        }
-        rows.push(row);
-        offset++;
-      }
-      offsets[row + 1] = offset;
-    }
-    for (let row of rows.reverse()) {
-      session.removeFullLines(row, row);
-    }
-    this.props.setOffsets(offsets);
-  } */
-
-  resize() {
-    this.editor.resize();
-  }
 }
 
-export default connect(({ current }) => ({ current }), actions, null, {
-  forwardRef: true,
-})(FoldableAceEditor);
+export default connect(
+  ({ current }) => ({ current }),
+  actions,
+  null
+)(FoldableAceEditor);

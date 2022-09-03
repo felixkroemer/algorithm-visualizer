@@ -100,7 +100,6 @@ export default handleActions(
         lastFiles: files,
         description,
         editingFile: undefined,
-        cachedFile: undefined,
         shouldBuild: true,
         saved: true,
         editorEnabled: false,
@@ -112,7 +111,6 @@ export default handleActions(
         ...state,
         editingFile: file,
         shouldBuild: true,
-        cachedFile: file,
       };
     },
     [modifyTitle]: (state, { payload }) => {

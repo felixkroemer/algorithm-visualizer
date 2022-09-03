@@ -12,7 +12,6 @@ class CodeEditor extends React.Component {
   constructor(props) {
     super(props);
 
-    this.aceEditorRef = React.createRef();
     this.state = { offsets: [] };
     this.setOffsets = this.setOffsets.bind(this);
   }
@@ -31,9 +30,6 @@ class CodeEditor extends React.Component {
     }
   }
 
-  handleResize() {
-    this.aceEditorRef.current.resize();
-  }
 
   render() {
     const { className } = this.props;
@@ -56,16 +52,11 @@ class CodeEditor extends React.Component {
       <div className={classes(styles.code_editor, className)}>
         <FoldableAceEditor
           className={styles.ace_editor}
-          ref={this.aceEditorRef}
           mode={mode}
           theme="tomorrow_night_eighties"
           name="code_editor"
           onChange={(code) => {
-            if (!editorEnabled) {
-              this.cachedFile = this.cachedFile
-                ? { ...this.cachedFile, content: code }
-                : { ...editingFile, content: code };
-            } else {
+            if (editorEnabled) {
               this.props.modifyFile(editingFile, code);
             }
           }}
@@ -143,5 +134,4 @@ export default connect(
   ({ current, env, player }) => ({ current, env, player }),
   actions,
   null,
-  { forwardRef: true }
 )(CodeEditor);
