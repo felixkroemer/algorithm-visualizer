@@ -27,11 +27,29 @@ export default class Commander {
   }
 
   static command(key, method, iArguments) {
+    var e = new Error();
+    if (!e.stack) try {
+      // IE requires the Error to actually be throw or else the Error's 'stack'
+      // property is undefined.
+      throw e;
+    } catch (e) {
+      if (!e.stack) {
+        return 0; // IE < 10, likely
+      }
+    }
+    var stack = e.stack.toString().split(/\r\n|\n/);
+    var frameRE = /anonymous.*:(\d+):(?:\d+)[^\d]*$/;
+    do {
+      var frame = stack.shift();
+    } while (!frameRE.exec(frame));
+    const line = frameRE.exec(frame)[1] - 2; // remove function\n{\n
+
     const args = Array.from(iArguments);
     this.commands.push({
       key,
       method,
       args: JSON.parse(JSON.stringify(args)),
+      line: line,
     });
     if (this.commands.length > MAX_COMMANDS)
       throw new Error("Too Many Commands");

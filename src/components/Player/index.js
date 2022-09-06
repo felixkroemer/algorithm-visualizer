@@ -36,7 +36,48 @@ class Player extends BaseComponent {
     }
   }
 
-  reset(commands = []) {
+  getCommands(content) {
+    const lines = content.split("\n");
+    let code = [];
+    let index = 0;
+    let tracing = true;
+    for (const line of lines) {
+      if (/\s*Tracer.delay();?/.test(line) || line.trim() === "") {
+        index++;
+        continue;
+      }
+      const start = /.*\/\/.*{/.test(line);
+      const end = /.*\/\/.*}/.test(line);
+      if (start) {
+        if (line.includes("combine")) {
+          code.push(`Tracer.delay(${index + 1});`);
+        }
+        tracing = false;
+        index++;
+        continue;
+      }
+      if (end) {
+        tracing = true;
+        index++;
+        continue;
+      }
+      if (tracing) {
+        code.push(`Tracer.delay(${index});`);
+      }
+      code.push(line);
+      if (tracing) {
+        code.push(`Tracer.delay(${index});`);
+      }
+      index++;
+    }
+    const require = (name) =>
+      ({ "algorithm-visualizer": AlgorithmVisualizer }[name]); // fake require
+    Function("require", code.join("\n"))(require);
+    return AlgorithmVisualizer.Commander.commands;
+  }
+
+  getChunks(content) {
+    const commands = this.getCommands(content);
     const chunks = [
       {
         commands: [],
@@ -61,85 +102,14 @@ class Player extends BaseComponent {
         chunks[chunks.length - 1].commands.push(command);
       }
     }
+    return chunks;
+  }
+
+  reset(chunks = []) {
     this.props.setChunks(chunks);
     this.props.setCursor(0);
     this.pause();
     this.props.setLineIndicator(undefined);
-  }
-
-  getCommands(content, ext) {
-    switch (ext) {
-      case "md":
-        return [
-          {
-            key: "markdown",
-            method: "MarkdownTracer",
-            args: ["Markdown"],
-          },
-          {
-            key: "markdown",
-            method: "set",
-            args: [content],
-          },
-          {
-            key: null,
-            method: "setRoot",
-            args: ["markdown"],
-          },
-        ];
-      case "js":
-        const lines = content.split("\n");
-        let code = [];
-        let index = 0;
-        let tracing = true;
-        for (const line of lines) {
-          if(/\s*Tracer.delay();?/.test(line) || line.trim() === "") {
-            index++;
-            continue;
-          }
-          const start = /.*\/\/.*{/.test(line);
-          const end = /.*\/\/.*}/.test(line);
-          if (start) {
-            if(line.includes("combine")) {
-              code.push(`Tracer.delay(${index + 1});`);
-            }
-            tracing = false;
-            index++;
-            continue;
-          }
-          if (end) {
-            tracing = true;
-            index++;
-            continue;
-          }
-          if (tracing) {
-            code.push(`Tracer.delay(${index});`);
-          }
-          code.push(line);
-          if (tracing) {
-            code.push(`Tracer.delay(${index});`);
-          }
-
-          index++;
-        }
-        code.filter((line, index, arr) => {
-          if (index > 1 && arr[index] == arr[index - 2]) {
-            return false;
-          } else {
-            return true;
-          }
-        });
-        // eslint-disable-next-line no-unused-vars
-        const process = { env: { ALGORITHM_VISUALIZER: "1" } };
-        // eslint-disable-next-line no-unused-vars
-        const require = (name) =>
-          ({ "algorithm-visualizer": AlgorithmVisualizer }[name]); // fake require
-        // eslint-disable-next-line no-eval
-        eval(code.join("\n"));
-        return AlgorithmVisualizer.Commander.commands;
-      default:
-        return null;
-    }
   }
 
   build(file) {
@@ -150,9 +120,33 @@ class Player extends BaseComponent {
     setTimeout(() => {
       try {
         const ext = extension(file.name);
-        if (ext === "md" || ext === "js") {
-          const commands = this.getCommands(file.content, ext);
-          this.reset(commands);
+        if (ext === "md") {
+          this.reset([
+            {
+              commands: [
+                {
+                  key: "markdown",
+                  method: "MarkdownTracer",
+                  args: ["Markdown"],
+                },
+                {
+                  key: "markdown",
+                  method: "set",
+                  args: [file.content],
+                },
+                {
+                  key: null,
+                  method: "setRoot",
+                  args: ["markdown"],
+                },
+              ],
+              lineNumer: undefined,
+            },
+          ]);
+          this.next();
+        } else if (ext === "js") {
+          const chunks = this.getChunks(file.content);
+          this.reset(chunks);
           this.next();
         } else {
           throw new Error("Language Not Supported");
